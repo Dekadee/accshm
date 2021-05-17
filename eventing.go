@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"syscall"
 	"time"
 )
 
 type LapTimeUpdate struct {
-	LastTime  int32 `json:"last_time"`
-	BestTime  int32 `json:"best_time"`
-	Completed int32 `json:"completed"`
+	LastTime  int32  `json:"last_time"`
+	BestTime  int32  `json:"best_time"`
+	Completed int32  `json:"completed"`
+	Compound  string `json:"compound"`
 }
 
 type SectorTimeUpdate struct {
@@ -53,6 +55,7 @@ func (publisher *ACCEventPublisher) Start(gTimer int) {
 			LastTime:  0,
 			BestTime:  math.MaxInt32,
 			Completed: 0,
+			Compound:  "None",
 		}
 
 		STUS := make([]SectorTimeUpdate, 3)
@@ -118,12 +121,17 @@ func (publisher *ACCEventPublisher) Start(gTimer int) {
 						}
 
 						if graphics.CompletedLaps != LTU.Completed {
+							tyreCompound := syscall.UTF16ToString(graphics.CurrentTime[:])
+							if LTU.Compound == "None" {
+								LTU.Compound = tyreCompound
+							}
 							LTU.BestTime = graphics.IBestTime
 							LTU.LastTime = graphics.ILastTime
 							LTU.Completed = graphics.CompletedLaps
 							for sub := range publisher.laptimeSubscriptions {
 								publisher.laptimeSubscriptions[sub](LTU)
 							}
+							LTU.Compound = tyreCompound
 						}
 
 						if graphics.Flag != trackUpdate.Flag || graphics.IsInPit != trackUpdate.Pit || graphics.IsInPitLane != trackUpdate.PitLane {
@@ -152,7 +160,7 @@ func (publisher *ACCEventPublisher) Stop() {
 
 func (publisher *ACCEventPublisher) AddLaptimeSubscription(key string, handleFunc func(LapTimeUpdate)) error {
 	_, ok := publisher.laptimeSubscriptions[key]
-	if !ok {
+	if ok {
 		return fmt.Errorf("laptime publisher already defined for %q", key)
 	}
 	publisher.laptimeSubscriptions[key] = handleFunc
@@ -171,7 +179,7 @@ func (publisher *ACCEventPublisher) DeleteLaptimeSubscription(key string) error 
 
 func (publisher *ACCEventPublisher) AddSectortimeSubscription(key string, handleFunc func(SectorTimeUpdate)) error {
 	_, ok := publisher.sectortimeSubscriptions[key]
-	if !ok {
+	if ok {
 		return fmt.Errorf("sector publisher already defined for %q", key)
 	}
 	publisher.sectortimeSubscriptions[key] = handleFunc
@@ -190,7 +198,7 @@ func (publisher *ACCEventPublisher) DeleteSectortimeSubscription(key string) err
 
 func (publisher *ACCEventPublisher) AddTrackStatusSubscription(key string, handleFunc func(TrackUpdate)) error {
 	_, ok := publisher.trackstatusSubscriptions[key]
-	if !ok {
+	if ok {
 		return fmt.Errorf("track status publisher already defined for %q", key)
 	}
 	publisher.trackstatusSubscriptions[key] = handleFunc
