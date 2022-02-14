@@ -17,7 +17,7 @@ Read the memory page like this:
 physics := new(accshm.ACCPhysics)
 
 // Reading will fail, if the game has not been started at least once
-err := ReadPhysics(physics)
+err := accshm.ReadPhysics(physics)
 if err != nil {
     // Handle potential errors
 }
